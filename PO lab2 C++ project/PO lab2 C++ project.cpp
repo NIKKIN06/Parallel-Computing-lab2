@@ -26,15 +26,20 @@
 #include <vector>
 #include <algorithm>
 #include <random>
+#include <chrono>
+#include <limits>
 
 using namespace std;
+using namespace std::chrono;
 
 void generate_random_numbers(vector<int> &arr, int amount)
 {
 	random_device rd;
 	mt19937 engine(rd());
-	uniform_int_distribution<> dist(0, 10000);
+	uniform_int_distribution<> dist(1, numeric_limits<int>::max());
 
+	arr.reserve(amount);
+	
 	for (int i = 0; i < amount; i++)
 	{
 		arr.push_back(dist(engine));
@@ -66,9 +71,17 @@ int main()
 	vector<int> arr = {};
 	generate_random_numbers(arr, numbers_amount);
 
-	int amount = 0, min_element = *(max_element(arr.begin(), arr.end()));
+	int amount = 0, min_element = numeric_limits<int>::max();
 
+	auto start_time = high_resolution_clock::now();
 	single_thread_task_function(arr, amount, min_element);
+	auto end_time = high_resolution_clock::now();
 
-	cout << amount << "\n" << min_element;
+	duration<double, micro> time = end_time - start_time;
+	
+	double single_thread_execution_time = time.count();
+
+	cout << amount << "\n"
+		 << ((min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element)) << "\n"
+		 << single_thread_execution_time << " microseconds\n";
 }
