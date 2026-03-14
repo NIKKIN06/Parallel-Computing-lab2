@@ -30,6 +30,7 @@
 #include <limits>
 #include <mutex>
 #include <thread>
+#include <atomic>
 
 using namespace std;
 using namespace std::chrono;
@@ -48,7 +49,7 @@ void generate_random_numbers(vector<int> &arr, int amount)
 	}
 }
 
-void single_thread_task_function(vector<int> &arr, int &amount, int &min_element)
+void single_thread_task_function(const vector<int> &arr, int &amount, int &min_element)
 {
 	for (int number : arr)
 	{
@@ -64,7 +65,7 @@ void single_thread_task_function(vector<int> &arr, int &amount, int &min_element
 	}
 }
 
-void mutex_task_function(vector<int> &arr, int start_index, int end_index, int &amount, int &min_element, mutex &mtx)
+void mutex_task_function(const vector<int> &arr, int start_index, int end_index, int &amount, int &min_element, mutex &mtx)
 {
 	for (int i = start_index; i < end_index; i++)
 	{
@@ -80,6 +81,29 @@ void mutex_task_function(vector<int> &arr, int start_index, int end_index, int &
 			}
 
 			mtx.unlock();
+		}
+	}
+}
+
+void atomic_task_function(const vector<int> &arr, int start_index, int end_index, atomic<int> &amount, atomic<int> &min_element)
+{
+	for (int i = start_index; i < end_index; i++)
+	{
+		if (arr[i] % 19 == 0)
+		{
+			int old_amount = amount.load();
+
+			while (!amount.compare_exchange_weak(old_amount, old_amount + 1))
+			{
+				//cerr << "Retrying!\n";
+			}
+
+			int old_min_element = min_element.load();
+
+			while (arr[i] < old_min_element)
+			{
+				if (min_element.compare_exchange_weak(old_min_element, arr[i])) break;
+			}
 		}
 	}
 }
@@ -101,20 +125,27 @@ int main()
 	single_thread_task_function(arr, amount, min_element);
 	auto end_time = high_resolution_clock::now();
 
-	duration<double, micro> time = end_time - start_time;
+	duration<double, milli> time = end_time - start_time;
 
 	double single_thread_execution_time = time.count();
 
 	cout << amount << "\n"
 		<< ((min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element)) << "\n"
-		<< single_thread_execution_time << " microseconds\n";
+		<< single_thread_execution_time << " ms\n";
 
 	// ----- task 4 -----
 
 	mutex mtx;
 
 	vector<thread> threads;
-	int thread_amount = 8;
+
+	unsigned int thread_amount = std::thread::hardware_concurrency();
+
+	if (thread_amount == 0)
+	{
+		thread_amount = 12;
+	}
+	
 	amount = 0;
 	min_element = numeric_limits<int>::max();
 
@@ -143,5 +174,39 @@ int main()
 
 	cout << "\n\n" << amount << "\n"
 		<< ((min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element)) << "\n"
-		<< mutex_execution_time << " microseconds\n";
+		<< mutex_execution_time << " ms\n";
+
+	// ----- task 5 -----
+	
+	atomic<int> atomic_amount(0);
+	atomic<int> atomic_min_element(numeric_limits<int>::max());
+
+	threads.clear();
+
+	start_time = high_resolution_clock::now();
+
+	for (int i = 0; i < thread_amount; i++)
+	{
+		int start_index = i * (numbers_amount / thread_amount);
+		int end_index = (i == thread_amount - 1) ? numbers_amount : (i + 1) * (numbers_amount / thread_amount);
+		threads.emplace_back(atomic_task_function, ref(arr), start_index, end_index, ref(atomic_amount), ref(atomic_min_element));
+	}
+
+	for (auto& thread : threads)
+	{
+		if (thread.joinable())
+		{
+			thread.join();
+		}
+	}
+
+	end_time = high_resolution_clock::now();
+
+	time = end_time - start_time;
+
+	double atomic_execution_time = time.count();
+
+	cout << "\n\n" << atomic_amount.load() << "\n"
+		<< ((atomic_min_element.load() == numeric_limits<int>::max()) ? "-" : to_string(atomic_min_element.load())) << "\n"
+		<< atomic_execution_time << " ms\n";
 }
