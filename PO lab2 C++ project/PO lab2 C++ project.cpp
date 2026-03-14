@@ -28,6 +28,8 @@
 #include <random>
 #include <chrono>
 #include <limits>
+#include <mutex>
+#include <thread>
 
 using namespace std;
 using namespace std::chrono;
@@ -62,6 +64,26 @@ void single_thread_task_function(vector<int> &arr, int &amount, int &min_element
 	}
 }
 
+void mutex_task_function(vector<int> &arr, int start_index, int end_index, int &amount, int &min_element, mutex &mtx)
+{
+	for (int i = start_index; i < end_index; i++)
+	{
+		if (arr[i] % 19 == 0)
+		{
+			mtx.lock();
+
+			amount++;
+
+			if (arr[i] < min_element)
+			{
+				min_element = arr[i];
+			}
+
+			mtx.unlock();
+		}
+	}
+}
+
 int main()
 {
 	int numbers_amount = 0;
@@ -73,15 +95,53 @@ int main()
 
 	int amount = 0, min_element = numeric_limits<int>::max();
 
+	// ----- task 3 -----
+
 	auto start_time = high_resolution_clock::now();
 	single_thread_task_function(arr, amount, min_element);
 	auto end_time = high_resolution_clock::now();
 
 	duration<double, micro> time = end_time - start_time;
-	
+
 	double single_thread_execution_time = time.count();
 
 	cout << amount << "\n"
-		 << ((min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element)) << "\n"
-		 << single_thread_execution_time << " microseconds\n";
+		<< ((min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element)) << "\n"
+		<< single_thread_execution_time << " microseconds\n";
+
+	// ----- task 4 -----
+
+	mutex mtx;
+
+	vector<thread> threads;
+	int thread_amount = 8;
+	amount = 0;
+	min_element = numeric_limits<int>::max();
+
+	start_time = high_resolution_clock::now();
+
+	for (int i = 0; i < thread_amount; i++)
+	{
+		int start_index = i * (numbers_amount / thread_amount);
+		int end_index = (i == thread_amount - 1) ? numbers_amount : (i + 1) * (numbers_amount / thread_amount);
+		threads.emplace_back(mutex_task_function, ref(arr), start_index, end_index, ref(amount), ref(min_element), ref(mtx));
+	}
+
+	for (auto& thread : threads)
+	{
+		if (thread.joinable())
+		{
+			thread.join();
+		}
+	}
+
+	end_time = high_resolution_clock::now();
+
+	time = end_time - start_time;
+
+	double mutex_execution_time = time.count();
+
+	cout << "\n\n" << amount << "\n"
+		<< ((min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element)) << "\n"
+		<< mutex_execution_time << " microseconds\n";
 }
