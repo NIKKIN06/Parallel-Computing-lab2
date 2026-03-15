@@ -31,6 +31,7 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <string>
 
 using namespace std;
 using namespace std::chrono;
@@ -108,6 +109,26 @@ void atomic_task_function(const vector<int> &arr, int start_index, int end_index
 	}
 }
 
+void print_results(string task_name, int amount, int min_element, double time)
+{
+	cout << "----- " << task_name << " task -----\n";
+	cout << "Amount: " << amount << "\n";
+
+	if (min_element == numeric_limits<int>::max())
+	{
+		cout << "Min element: " << "-\n";
+		cout << "Is divisible by 19? -\n";
+	}
+	else
+	{
+		cout << "Min element: " << min_element << endl;
+		cout << "Is divisible by 19? " << ( (min_element % 19 == 0) ? "Yes" : "No") << ": " << min_element << " % 19 = " << min_element % 19 << endl;
+	}
+
+	cout << "Min element: " << ( (min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element) ) << "\n";
+	cout << "Execution time: " << time << " ms\n\n";
+}
+
 int main()
 {
 	int numbers_amount = 0;
@@ -129,9 +150,7 @@ int main()
 
 	double single_thread_execution_time = time.count();
 
-	cout << amount << "\n"
-		<< ((min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element)) << "\n"
-		<< single_thread_execution_time << " ms\n";
+	//print_results("Single thread", amount, min_element, single_thread_execution_time);
 
 	// ----- task 4 -----
 
@@ -172,9 +191,7 @@ int main()
 
 	double mutex_execution_time = time.count();
 
-	cout << "\n\n" << amount << "\n"
-		<< ((min_element == numeric_limits<int>::max()) ? "-" : to_string(min_element)) << "\n"
-		<< mutex_execution_time << " ms\n";
+	//print_results("Mutex", amount, min_element, mutex_execution_time);
 
 	// ----- task 5 -----
 	
@@ -206,7 +223,6 @@ int main()
 
 	double atomic_execution_time = time.count();
 
-	cout << "\n\n" << atomic_amount.load() << "\n"
-		<< ((atomic_min_element.load() == numeric_limits<int>::max()) ? "-" : to_string(atomic_min_element.load())) << "\n"
-		<< atomic_execution_time << " ms\n";
+	//print_results("Atomic", atomic_amount, atomic_min_element, atomic_execution_time);
+	cout << single_thread_execution_time << " " << mutex_execution_time << " " << atomic_execution_time << "\n";
 }
